@@ -5,11 +5,22 @@ import requests
 import subprocess
 import shlex
 import argparse
+import platform
 from os import path
 from PIL import Image
 
 WALLPAPER_LOCATION = path.expanduser('~/.wallpaper')
 PREVIOUS_URL_LOCATION = path.abspath('/tmp/reddit-wallpaper-url')
+
+COMMANDS = {'Linux': 
+                    'gsettings set org.gnome.desktop.background picture-uri file://{}',
+            'Darwin':
+                    """/usr/bin/osascript<<END
+                    tell application "Finder"
+                    set desktop picture to POSIX file "{}"
+                    end tell
+                    END"""
+            }
 
 def is_image(url):
     r = requests.head(url)
@@ -45,14 +56,13 @@ def save_urls(urls):
         for url in checked:
             f.write(url + '\n')
 
-
 if __name__=='__main__':
     parser = argparse.ArgumentParser(description='Updates wallpaper from reddit sub.')
     parser.add_argument('--subreddit', '-s', nargs='?',
         default='imaginarylandscapes',
         help='Name of subreddit')
     parser.add_argument('--command', '-c', nargs='?',
-        default='gsettings set org.gnome.desktop.background picture-uri file://{}',
+        default='',
         help='Command to set wallpaper.  Add {} for file location')
     parser.add_argument('--ratio', '-r', nargs='?',
             default='16:9',
@@ -68,6 +78,14 @@ if __name__=='__main__':
 
     previous = load_previous_urls()
     checked = []
+
+    if args.command:
+        command = args.command
+    else:
+        if not COMMANDS.has_key(platform.system()):
+            print "Unknown command to change wallpaper"
+            exit()
+        command = COMMANDS[platform.system()]
 
     try:
         for post in subreddit.get_hot():
@@ -89,12 +107,15 @@ if __name__=='__main__':
                     print "Image aspect wrong"
                     continue;
                 sp = subprocess.Popen(
-                    shlex.split(args.command.format(WALLPAPER_LOCATION)),
+                    shlex.split(command.format(WALLPAPER_LOCATION)),
                     )
                 print "Background successfully set"
                 save_urls(checked)
                 print "URL file written to {}".format(PREVIOUS_URL_LOCATION)
                 break;
     except requests.exceptions.HTTPError:
+        print 'Error: Unknown subreddit {}'.format(args.subreddit)
+        exit()
+    except praw.errors.RedirectException:
         print 'Error: Unknown subreddit {}'.format(args.subreddit)
         exit()
