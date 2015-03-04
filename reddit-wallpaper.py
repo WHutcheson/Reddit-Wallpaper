@@ -5,12 +5,22 @@ import requests
 import subprocess
 import shlex
 import time
+import argparse
 from os import path
 
-SAVE_LOCATION = path.expanduser('/home/will/.wallpaper')
-SUBREDDIT = 'imaginarylandscapes'
-SET_COMMAND = 'gsettings set org.gnome.desktop.background picture-uri file://{}'
-WINDOW_SESSION_ERROR = 'dconf-WARNING'
+parser = argparse.ArgumentParser(description='Updates wallpaper from reddit sub.')
+parser.add_argument('--subreddit', '-s', nargs='?',
+        default='imaginarylandscapes',
+        help='name of subreddit')
+parser.add_argument('--command', '-c', nargs='?',
+        default='gsettings set org.gnome.desktop.background picture-uri file://{}',
+        help='command to set wallpaper.  Add {} for file location')
+
+args = parser.parse_args()
+
+SAVE_LOCATION = path.expanduser('~/.wallpaper')
+SUBREDDIT = args.subreddit
+SET_COMMAND = args.command
 
 def is_image(url):
     r = requests.head(url)
@@ -22,24 +32,17 @@ if __name__=='__main__':
     r = praw.Reddit(user_agent='reddit-wallpaper')
     subreddit = r.get_subreddit(SUBREDDIT)
 
-    for post in subreddit.get_hot():
-        if(is_image(post.url)):
-            r = requests.get(post.url)
-            with open(SAVE_LOCATION, 'wb') as f:
-                for chunk in r.iter_content():
-                    f.write(chunk)
-            run = 1000
-            while(run):
+    try:
+        for post in subreddit.get_hot():
+            if(is_image(post.url)):
+                r = requests.get(post.url)
+                with open(SAVE_LOCATION, 'wb') as f:
+                    for chunk in r.iter_content():
+                        f.write(chunk)
                 sp = subprocess.Popen(
-                        #['ls']
-                        shlex.split(SET_COMMAND.format(SAVE_LOCATION)),
-                        #shell=True
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE
-                        )
-                if not WINDOW_SESSION_ERROR in sp.communicate()[1]:
-                    run=False
-                else:
-                    time.sleep(0.1)
-                    run-=1
-            break
+                    shlex.split(SET_COMMAND.format(SAVE_LOCATION)),
+                    )
+                break;
+    except requests.exceptions.HTTPError:
+        print 'Error: Unknown subreddit {}'.format(SUBREDDIT)
+        exit()
