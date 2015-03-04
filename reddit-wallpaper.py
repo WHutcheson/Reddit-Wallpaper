@@ -15,11 +15,7 @@ PREVIOUS_URL_LOCATION = path.abspath('/tmp/reddit-wallpaper-url')
 COMMANDS = {'Linux': 
                     'gsettings set org.gnome.desktop.background picture-uri file://{}',
             'Darwin':
-                    """/usr/bin/osascript<<END
-                    tell application "Finder"
-                    set desktop picture to POSIX file "{}"
-                    end tell
-                    END"""
+                    """osascript -e tell\" application \"Finder\" to set desktop to POSIX file \"{}\"\""""
             }
 
 def is_image(url):
